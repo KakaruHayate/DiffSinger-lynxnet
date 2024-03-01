@@ -11,10 +11,12 @@ from torch import nn
 from tqdm import tqdm
 
 from modules.diffusion.wavenet import WaveNet
+from modules.diffusion.naive_v2.naive_v2_diff import NaiveV2Diff
 from utils.hparams import hparams
 
 DIFF_DENOISERS = {
-    'wavenet': WaveNet
+    'wavenet': WaveNet,
+    'lynxnet': NaiveV2Diff
 }
 
 
