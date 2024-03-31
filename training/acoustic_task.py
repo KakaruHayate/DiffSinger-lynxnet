@@ -137,9 +137,9 @@ class AcousticTask(BaseTask):
                 losses['aux_mel_loss'] = aux_mel_loss
 
             if output.diff_out is not None:
-                # x_recon, x_noise = output.diff_out
-                # mel_loss = self.mel_loss(x_recon, x_noise, nonpadding=(mel2ph > 0).unsqueeze(-1).float())
-                losses['mel_loss'] = output.diff_out
+                x_recon, x_noise, t = output.diff_out
+                mel_loss = self.mel_loss(x_recon, x_noise, t, nonpadding=(mel2ph > 0).unsqueeze(-1).float())
+                losses['mel_loss'] = mel_loss
 
             return losses
 
