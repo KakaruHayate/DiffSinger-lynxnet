@@ -45,6 +45,7 @@ class RectifiedFlow(nn.Module):
         else:
             loss_type = loss_type
 
+        '''
         if loss_type == 'l1':
             loss = (x_1 - x_0 - v_pred).abs().mean()
         elif loss_type == 'l2':
@@ -54,8 +55,9 @@ class RectifiedFlow(nn.Module):
             loss = torch.mean(weights[:, None, None, None] * F.mse_loss(x_1 - x_0, v_pred, reduction='none'))
         else:
             raise NotImplementedError()
-
-        return loss
+        '''
+        x_r = x_1 - x_0
+        return x_r, v_pred, t
 
     def sample_euler(self, x, t, dt, cond):
         x += self.velocity_fn(x, 1000 * t, cond) * dt
