@@ -13,6 +13,7 @@ from tqdm import tqdm
 from modules.diffusion.wavenet import WaveNet
 from modules.diffusion.naive_v2.naive_v2_diff import NaiveV2Diff
 from utils.hparams import hparams
+from modules.diffusion.reflow import RectifiedFlow as GaussianDiffusion
 
 DIFF_DENOISERS = {
     'wavenet': WaveNet,
@@ -65,7 +66,7 @@ beta_schedule = {
 }
 
 
-class GaussianDiffusion(nn.Module):
+class GaussianDiffusion_s(nn.Module):
     def __init__(self, out_dims, num_feats=1, timesteps=1000, k_step=1000,
                  denoiser_type=None, denoiser_args=None, betas=None,
                  spec_min=None, spec_max=None):
