@@ -152,6 +152,7 @@ class DiffSingerVarianceExporter(BaseExporter):
             # basic configs
             'phonemes': f'{self.model_name}.phonemes.txt',
             'linguistic': f'{model_name}.linguistic.onnx',
+            'hidden_size': self.model.hidden_size,
             'predict_dur': self.model.predict_dur,
         }
         # multi-speaker
@@ -162,6 +163,8 @@ class DiffSingerVarianceExporter(BaseExporter):
             dsconfig['dur'] = f'{model_name}.dur.onnx'
         if self.model.predict_pitch:
             dsconfig['pitch'] = f'{model_name}.pitch.onnx'
+            dsconfig['use_expr'] = self.expose_expr
+            dsconfig['use_note_rest'] = self.model.use_melody_encoder
         if self.model.predict_variances:
             dsconfig['variance'] = f'{model_name}.variance.onnx'
             for variance in VARIANCE_CHECKLIST:

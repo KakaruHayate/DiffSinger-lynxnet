@@ -121,7 +121,8 @@ class DiffSingerAcousticExporter(BaseExporter):
             # basic configs
             'phonemes': f'{self.model_name}.phonemes.txt',
             'acoustic': f'{model_name}.onnx',
-            'vocoder': 'nsf_hifigan',
+            'hidden_size': hparams['hidden_size'],
+            'vocoder': 'nsf_hifigan_44.1k_hop512_128bin_2024.02',
         }
         # multi-speaker
         if len(self.export_spk) > 0:
@@ -148,7 +149,7 @@ class DiffSingerAcousticExporter(BaseExporter):
         dsconfig['num_mel_bins'] = hparams['audio_num_mel_bins']
         dsconfig['mel_fmin'] = hparams['fmin']
         dsconfig['mel_fmax'] = hparams['fmax'] if hparams['fmax'] is not None else hparams['audio_sample_rate'] / 2
-        dsconfig['mel_base'] = '10'
+        dsconfig['mel_base'] = str(hparams.get('mel_base', '10'))
         dsconfig['mel_scale'] = 'slaney'
         config_path = path / 'dsconfig.yaml'
         with open(config_path, 'w', encoding='utf8') as fw:

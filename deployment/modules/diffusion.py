@@ -28,7 +28,9 @@ class GaussianDiffusionONNX(GaussianDiffusion):
                 extract(self.sqrt_recip_alphas_cumprod, t) * x -
                 extract(self.sqrt_recipm1_alphas_cumprod, t) * x_pred
         )
-        x_recon = torch.clamp(x_recon, min=-1., max=1.)
+        # This is previously inherited from original DiffSinger repository
+        # and disabled due to some loudness issues when speedup = 1.
+        # x_recon = torch.clamp(x_recon, min=-1., max=1.)
 
         model_mean = (
                 extract(self.posterior_mean_coef1, t) * x_recon +

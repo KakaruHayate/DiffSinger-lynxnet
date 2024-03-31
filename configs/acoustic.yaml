@@ -47,8 +47,9 @@ binarizer_cls: preprocessing.acoustic_binarizer.AcousticBinarizer
 dictionary: dictionaries/opencpop-extension.txt
 spec_min: [-5]
 spec_max: [0]
-mel_vmin: -6. #-6.
+mel_vmin: -6.
 mel_vmax: 1.5
+mel_base: '10'
 energy_smooth_width: 0.12
 breathiness_smooth_width: 0.12
 voicing_smooth_width: 0.12

@@ -156,7 +156,7 @@ class AcousticTask(BaseTask):
         if sample['size'] > 0 and min(sample['indices']) < hparams['num_valid_plots']:
             mel_out: ShallowDiffusionOutput = self.run_model(sample, infer=True)
             for i in range(len(sample['indices'])):
-                data_idx = sample['indices'][i]
+                data_idx = sample['indices'][i].item()
                 if data_idx < hparams['num_valid_plots']:
                     if self.use_vocoder:
                         self.plot_wav(
