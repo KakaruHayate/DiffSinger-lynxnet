@@ -1,5 +1,7 @@
 import torch.nn as nn
 from torch import Tensor
+import torch
+import torch.nn.functional as F
 
 
 class DiffusionNoiseLoss(nn.Module):
@@ -21,14 +23,16 @@ class DiffusionNoiseLoss(nn.Module):
         else:
             return x_recon, noise
 
-    def _forward(self, x_recon, noise):
-        return self.loss(x_recon, noise)
+    def _forward(self, x_r, v_pred, t):
+        weights = 0.398942 / t / (1 - t) * torch.exp(-0.5 * torch.log(t / (1 - t)) ** 2)
+        loss = torch.mean(weights[:, None, None, None] * F.mse_loss(x_recon, v_pred, reduction='none'))
+        return loss
 
-    def forward(self, x_recon: Tensor, noise: Tensor, nonpadding: Tensor = None) -> Tensor:
+    def forward(self, x_recon: Tensor, noise: Tensor, t, nonpadding: Tensor = None) -> Tensor:
         """
         :param x_recon: [B, 1, M, T]
         :param noise: [B, 1, M, T]
         :param nonpadding: [B, T, M]
         """
         x_recon, noise = self._mask_nonpadding(x_recon, noise, nonpadding)
-        return self._forward(x_recon, noise).mean()
+        return self._forward(x_recon, noise, t).mean()
