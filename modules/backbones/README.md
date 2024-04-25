@@ -29,3 +29,7 @@
 训练时的显存占用有着较大的增加
 
 导出ONNX时修改第五十行`memory_efficient=False`
+
+目前发现在导出ONNX时会出现问题
+
+此外`memory_efficient`在多卡情况下会出现第一个GPU显存消耗不减反增的情况，在原repo因为没有多卡场景所以不考虑这个情况
