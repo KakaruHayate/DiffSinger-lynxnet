@@ -44,7 +44,7 @@ class NaiveV2DiffLayer(nn.Module):
                  conv_only: bool = True,
                  conv_dropout: float = 0.,
                  atten_dropout: float = 0.1,
-                 use_mlp=True,
+                 use_mlp=False,
                  expansion_factor=2,
                  kernel_size=31,
                  wavenet_like=False,
@@ -110,7 +110,7 @@ class NaiveV2Diff(nn.Module):
 
             in_dims, n_feats, *, n_layers=20, n_chans=256, n_dilates=4,
 
-            use_mlp=True,
+            use_mlp=False,
             mlp_factor=4,
             expansion_factor=2,
             kernel_size=31,
