@@ -124,7 +124,8 @@ class ConformerConvModule(nn.Module):
             use_norm=False,
             use_selayer=False,
             use_batchnorm=False,
-            use_swish=False, 
+            use_doubleswish=False,   # if activation=nn.SiLU()
+            activation=nn.ReLU(),  # nn.SiLU() / nn.ReLU() / nn.PReLU(512) 'dim=512'
             conv_model_type='mode1'
     ):
         super().__init__()
@@ -150,7 +151,7 @@ class ConformerConvModule(nn.Module):
                 nn.Conv1d(dim, inner_dim * 2, 1),
                 nn.GLU(dim=1),
                 nn.Conv1d(inner_dim, inner_dim, kernel_size=kernel_size, padding=padding[0], groups=inner_dim),
-                nn.SiLU(),
+                activation,
                 _doubleswish,
                 nn.Conv1d(inner_dim, dim, 1),
                 Transpose((1, 2)),
@@ -163,7 +164,7 @@ class ConformerConvModule(nn.Module):
                 nn.Conv1d(dim, dim * 2, 1),
                 nn.GLU(dim=1),
                 nn.Conv1d(dim, dim, kernel_size=kernel_size, padding=padding[0], groups=dim),
-                nn.SiLU(),
+                activation,
                 _doubleswish,
                 nn.Conv1d(dim, dim, 1),
                 Transpose((1, 2)),
