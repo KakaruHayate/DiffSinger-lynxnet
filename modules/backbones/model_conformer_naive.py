@@ -127,7 +127,7 @@ class ConformerConvModule(nn.Module):
             use_doubleswish=False,   # if activation=nn.SiLU() ，不太推荐，域外爆炸复现
             activation=nn.ReLU(),  # nn.SiLU() / nn.ReLU() / nn.PReLU(512) 'dim=512'
             # 炼丹魅力时刻之激活函数带音染，Swish会让声音变尖一些，DoubleSwish更尖，ReLU稍弱，不同数据表现不一样，建议自行测试
-            conv_model_type='mode1'
+            conv_model_type='mode1' # mode2参数更小，效果似乎没区别，需要去 naive_v2_diff.py class NaiveV2Diff 修改，在这里改参数会被覆盖
     ):
         super().__init__()
 
