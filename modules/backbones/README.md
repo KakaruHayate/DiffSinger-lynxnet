@@ -20,6 +20,10 @@
 
 只推荐在acoustic model上使用
 
+目前发现激活函数对于音色的影响，详情见`model_conformer_naive.py`，结论不一定正确，缺乏大量测试
+
+**6G训练方法**：修改前级大小为256*3，修改激活函数为`nn.ReLU`，使用`mode2`
+
 ## WavenetAdaIN
 
 本repo参考：https://github.com/CNChTu/Diffusion-SVC/blob/v2.0_dev/diffusion/wavenet_adain.py
@@ -30,7 +34,7 @@
 
 导出ONNX时修改第五十行`memory_efficient=False`
 
-目前发现在导出ONNX时会出现问题
+目前发现在导出ONNX时会出现问题，涉及动态操作或许无解
 
 此外`memory_efficient`在多卡情况下会出现第一个GPU显存消耗不减反增的情况，在原repo因为没有多卡场景所以不考虑这个情况
 
