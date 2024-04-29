@@ -33,3 +33,9 @@
 目前发现在导出ONNX时会出现问题
 
 此外`memory_efficient`在多卡情况下会出现第一个GPU显存消耗不减反增的情况，在原repo因为没有多卡场景所以不考虑这个情况
+
+## ConvNeXt
+
+本repo参考：https://github.com/openvpi/DiffSinger/tree/dur_diffusion
+
+浅扩散前级使用的网络

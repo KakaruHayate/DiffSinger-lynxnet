@@ -126,6 +126,7 @@ class ConformerConvModule(nn.Module):
             use_batchnorm=False,
             use_doubleswish=False,   # if activation=nn.SiLU()
             activation=nn.ReLU(),  # nn.SiLU() / nn.ReLU() / nn.PReLU(512) 'dim=512'
+            # 炼丹魅力时刻之激活函数带音染，Swish会让声音变尖一些，DoubleSwish更尖，不同数据表现不一样，建议自行测试
             conv_model_type='mode1'
     ):
         super().__init__()
