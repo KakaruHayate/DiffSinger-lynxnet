@@ -13,8 +13,6 @@ class PitchNet(nn.Module):
         out_dim = out_dims
         n_layers = num_layers
         kernel = kernel_size
-
-        # self.in_linear = nn.Linear(in_dim,in_dim)
         
         padding = kernel // 2
         self.layers = []
@@ -35,15 +33,12 @@ class PitchNet(nn.Module):
             )
             in_dim = num_channels
         self.layers = nn.ModuleList(self.layers)
-        
-        if num_channels==256:
-            self.mlp = nn.Identity()
-        else:
-            self.mlp = nn.Sequential(
-                nn.Linear(num_channels, num_channels // 2),
-                nn.Mish(),
-                nn.Linear(num_channels // 2, out_dim)
-            )
+
+        self.mlp = nn.Sequential(
+            nn.Linear(num_channels, num_channels // 2),
+            nn.Mish(),
+            nn.Linear(num_channels // 2, out_dim)
+        )
         
 
 
@@ -52,14 +47,10 @@ class PitchNet(nn.Module):
         input:[B, T, 256]
         output:[B, T, F x C = 128]
         """
-        # x = self.in_linear(x)
-        
         x = x.transpose(1, 2)
         for _, l in enumerate(self.layers):
             x = l(x)
-
         x = x.transpose(1, 2)
-        
         x = self.mlp(x)    
         
         return x
