@@ -6,7 +6,7 @@ import torch.nn as nn
 class PitchNet(nn.Module):
     def __init__(
             self, in_dims, out_dims, /, *,
-            num_channels=512, num_layers=6, kernel_size=5, dropout_rate=0.1, strides=None
+            num_channels=512, num_layers=2, kernel_size=5, dropout_rate=0.1, strides=None
     ):
         super().__init__()
         in_dim = in_dims
