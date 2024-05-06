@@ -10,6 +10,8 @@
 
 本repo参考：https://github.com/yxlllc/ReFlow-VAE-SVC/blob/main/reflow/naive_v2_diff.py
 
+`512*6`**的网络大小是最佳参数，其他最佳参数已经默认无需修改**
+
 训练和推理的过程中，有更快的速度以及更小的显存占用
 
 经测试在数据音域边缘的表现更佳，在音质表现上有些许下降
@@ -28,6 +30,8 @@
 
 本repo参考：https://github.com/CNChTu/Diffusion-SVC/blob/v2.0_dev/diffusion/wavenet_adain.py
 
+**不推荐**
+
 在更低的推理步数上有着更好的表现，待进一步测试，参数无需更改
 
 训练时的显存占用有着较大的增加
@@ -41,5 +45,7 @@
 ## ConvNeXt
 
 本repo参考：https://github.com/openvpi/DiffSinger/tree/dur_diffusion
+
+**理论上有着非常高的性能，但是还没有找到最佳参数，不推荐**
 
 浅扩散前级使用的网络
