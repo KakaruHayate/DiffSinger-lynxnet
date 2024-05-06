@@ -26,7 +26,9 @@ class ConformerNaiveEncoder(nn.Module):
                  use_norm: bool = False,
                  conv_only: bool = False,
                  conv_dropout: float = 0.,
-                 atten_dropout: float = 0.
+                 atten_dropout: float = 0.,
+                 conv_model_type='mode1',
+                 conv_model_activation='SiLU'
                  ):
         super().__init__()
         self.num_layers = num_layers
@@ -38,7 +40,18 @@ class ConformerNaiveEncoder(nn.Module):
 
         self.encoder_layers = nn.ModuleList(
             [
-                CFNEncoderLayer(dim_model, num_heads, use_norm, conv_only, conv_dropout, atten_dropout)
+                CFNEncoderLayer(
+                    dim_model=dim_model,
+                    expansion_factor=expansion_factor,
+                    kernel_size=kernel_size,
+                    num_heads=num_heads,
+                    use_norm=use_norm,
+                    conv_only=conv_only,
+                    conv_dropout=conv_dropout,
+                    atten_dropout=atten_dropout,
+                    conv_model_type=conv_model_type,
+                    conv_model_activation=conv_model_activation
+                )
                 for _ in range(num_layers)
             ]
         )
@@ -63,8 +76,10 @@ class CFNEncoderLayer(nn.Module):
 
     Args:
         dim_model (int): Dimension of model
+        expansion_factor (int): Expansion factor of conv module, default 2
+        kernel_size (int): Kernel size of conv module, default 31
         num_heads (int): Number of heads
-        use_norm (bool): Whether to use norm for FastAttention, only True can use bf16/fp16, default False
+        use_norm (bool): Whether to use norm
         conv_only (bool): Whether to use only conv module without attention, default False
         conv_dropout (float): Dropout rate of conv module, default 0.1
         atten_dropout (float): Dropout rate of attention module, default 0.1
@@ -72,15 +87,27 @@ class CFNEncoderLayer(nn.Module):
 
     def __init__(self,
                  dim_model: int,
+                 expansion_factor: int = 2,
+                 kernel_size: int = 31,
                  num_heads: int = 8,
                  use_norm: bool = False,
-                 conv_only: bool = False,
+                 conv_only: bool = True,
                  conv_dropout: float = 0.,
-                 atten_dropout: float = 0.1
+                 atten_dropout: float = 0.1,
+                 conv_model_type='mode1',
+                 conv_model_activation='SiLU'
                  ):
         super().__init__()
 
-        self.conformer = ConformerConvModule(dim_model, use_norm=use_norm, dropout=conv_dropout)
+        self.conformer = ConformerConvModule(
+            dim_model,
+            expansion_factor=expansion_factor,
+            kernel_size=kernel_size,
+            use_norm=use_norm,
+            dropout=conv_dropout,
+            conv_model_type=conv_model_type,
+            activation=conv_model_activation
+        )
 
         self.norm = nn.LayerNorm(dim_model)
 
@@ -107,7 +134,7 @@ class CFNEncoderLayer(nn.Module):
             torch.Tensor: Output tensor (#batch, length, dim_model)
         """
         if self.attn is not None:
-            x = x + (self.attn(self.norm(x), mask=mask))
+            x = x + (self.attn(self.norm(x), src_mask=mask))
 
         x = x + (self.conformer(x))
 
@@ -122,14 +149,20 @@ class ConformerConvModule(nn.Module):
             kernel_size=31,
             dropout=0.,
             use_norm=False,
-            use_selayer=False,
-            use_batchnorm=False,
-            use_doubleswish=False,   # if activation=nn.SiLU() ，不太推荐，域外爆炸复现
-            activation=nn.ReLU(),  # nn.SiLU() / nn.ReLU() / nn.PReLU(512) 'dim=512'
+            activation='SiLU',
             # 炼丹魅力时刻之激活函数带音染，Swish会让声音变尖一些，DoubleSwish更尖，ReLU稍弱，不同数据表现不一样，建议自行测试
             conv_model_type='mode1' # mode2参数更小，效果似乎没区别，需要去 naive_v2_diff.py class NaiveV2Diff 修改，在这里改参数会被覆盖
     ):
         super().__init__()
+        activation = activation if activation is not None else 'SiLU'
+        if activation == 'SiLU':
+            _activation = nn.SiLU()
+        elif activation == 'ReLU':
+            _activation = nn.ReLU()
+        elif activation == 'PReLU':
+            _activation = nn.PReLU(dim)
+        else:
+            raise ValueError(f'{activation} is not a valid activation')
 
         inner_dim = dim * expansion_factor
         padding = calc_same_padding(kernel_size)
@@ -141,10 +174,6 @@ class ConformerConvModule(nn.Module):
             _dropout = nn.Dropout(dropout)
         else:
             _dropout = nn.Identity()
-        if use_doubleswish:
-            _doubleswish = nn.SiLU()
-        else:
-            _doubleswish = nn.Identity()
         if conv_model_type == 'mode1':
             self.net = nn.Sequential(
                 _norm,
@@ -152,8 +181,7 @@ class ConformerConvModule(nn.Module):
                 nn.Conv1d(dim, inner_dim * 2, 1),
                 nn.GLU(dim=1),
                 nn.Conv1d(inner_dim, inner_dim, kernel_size=kernel_size, padding=padding[0], groups=inner_dim),
-                activation,
-                _doubleswish,
+                _activation,
                 nn.Conv1d(inner_dim, dim, 1),
                 Transpose((1, 2)),
                 _dropout
@@ -165,8 +193,7 @@ class ConformerConvModule(nn.Module):
                 nn.Conv1d(dim, dim * 2, 1),
                 nn.GLU(dim=1),
                 nn.Conv1d(dim, dim, kernel_size=kernel_size, padding=padding[0], groups=dim),
-                activation,
-                _doubleswish,
+                _activation,
                 nn.Conv1d(dim, dim, 1),
                 Transpose((1, 2)),
                 _dropout
