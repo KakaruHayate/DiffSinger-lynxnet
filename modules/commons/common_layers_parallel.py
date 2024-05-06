@@ -132,38 +132,71 @@ class TransformerFFNLayer(nn.Module):
 
 class EncSALayer(nn.Module):
     def __init__(self, c, num_heads, dropout, attention_dropout=0.1,
-                 relu_dropout=0.1, kernel_size=9, act='gelu'):
+                 relu_dropout=0.1, kernel_size=9, act='gelu', mode='series'):
         super().__init__()
         self.dropout = dropout
         self.layer_norm1 = LayerNorm(c)
         self.self_attn = MultiheadAttention(
             c, num_heads, dropout=attention_dropout, bias=False,
         )
-        # self.layer_norm2 = LayerNorm(c)
+        self.mode = mode
+        if mode = 'series':
+            self.layer_norm2 = LayerNorm(c)
+        elif mode = 'parallel':
+            self.layer_norm2 = nn.Identity()
+        else:
+            raise ValueError(f'{mode} is not a valid EncSALayer_model_type')
+            
         self.ffn = TransformerFFNLayer(
             c, 4 * c, kernel_size=kernel_size, dropout=relu_dropout, act=act
         )
 
     def forward(self, x, encoder_padding_mask=None, **kwargs):
-        layer_norm_training = kwargs.get('layer_norm_training', None)
-        if layer_norm_training is not None:
-            self.layer_norm1.training = layer_norm_training
-        x_input = self.layer_norm1(x)
-        x_attn, _, = self.self_attn(
-            query=x_input,
-            key=x_input,
-            value=x_input,
-            key_padding_mask=encoder_padding_mask
-        )
-        x_attn = F.dropout(x_attn, self.dropout, training=self.training)
-        
-        x_ffn = self.ffn(x_input)
-        x_ffn = F.dropout(x_ffn, self.dropout, training=self.training)
-        
-        residual = x_attn + x_ffn
-        residual = residual * (1 - encoder_padding_mask.float()).transpose(0, 1)[..., None]
+        if self.mode = 'series':
+            layer_norm_training = kwargs.get('layer_norm_training', None)
+            if layer_norm_training is not None:
+                self.layer_norm1.training = layer_norm_training
+                self.layer_norm2.training = layer_norm_training
+            residual = x
+            x = self.layer_norm1(x)
+            x, _, = self.self_attn(
+                query=x,
+                key=x,
+                value=x,
+                key_padding_mask=encoder_padding_mask
+            )
+            x = F.dropout(x, self.dropout, training=self.training)
+            x = residual + x
+            x = x * (1 - encoder_padding_mask.float()).transpose(0, 1)[..., None]
 
-        x = residual + x
-        x = x * (1 - encoder_padding_mask.float()).transpose(0, 1)[..., None]
+            residual = x
+            x = self.layer_norm2(x)
+            x = self.ffn(x)
+            x = F.dropout(x, self.dropout, training=self.training)
+            x = residual + x
+            x = x * (1 - encoder_padding_mask.float()).transpose(0, 1)[..., None]
+        elif self.mode = 'parallel':
+            layer_norm_training = kwargs.get('layer_norm_training', None)
+            if layer_norm_training is not None:
+                self.layer_norm1.training = layer_norm_training
+            x_input = self.layer_norm1(x)
+            x_attn, _, = self.self_attn(
+                query=x_input,
+                key=x_input,
+                value=x_input,
+                key_padding_mask=encoder_padding_mask
+            )
+            x_attn = F.dropout(x_attn, self.dropout, training=self.training)
+            
+            x_ffn = self.ffn(x_input)
+            x_ffn = F.dropout(x_ffn, self.dropout, training=self.training)
+            
+            x_parallel = x_attn + x_ffn
+            x_parallel = x_parallel * (1 - encoder_padding_mask.float()).transpose(0, 1)[..., None]
+
+            x = x_parallel + x
+            x = x * (1 - encoder_padding_mask.float()).transpose(0, 1)[..., None]
+        else:
+            raise ValueError(f'{mode} is not a valid EncSALayer_model_type')
 
         return x
