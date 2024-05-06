@@ -17,12 +17,9 @@ class ResidualConvBlock(nn.Module):
         self.prelu = nn.PReLU(inner_dim)
         self.conv1x1_reduction = nn.Conv1d(inner_dim, dim, 1)
         self.dropout = nn.Dropout(dropout) if float(dropout) > 0. else nn.Identity()
-        self.shortcut = nn.Identity() if dim == inner_dim else nn.Conv1d(dim, dim, 1)
 
 
     def forward(self, x):
-
-        residual = x
 
         x = self.norm(x)
         x = self.conv1x1_expansion(x)
@@ -31,23 +28,16 @@ class ResidualConvBlock(nn.Module):
         x = self.prelu(x)
         x = self.conv1x1_reduction(x)
         x = self.dropout(x)
-        
-        x = x + self.shortcut(residual)
 
         return x
 
 
-class PitchNet(nn.Module):
+class PitchNetNew(nn.Module):
     # 参考 https://github.com/DiffBeautifier/svbcode/blob/main/net.py
     def __init__(
             self, in_dims, out_dims, /, *, num_channels=256, num_layers=3, expansion_factor=1, kernel_size=31, dropout_rate=0.1, use_norm=False
     ):
         super().__init__()
-        self.mlp_input = nn.Sequential(
-            nn.Linear(in_dims, in_dims * 2),
-            nn.Mish(),
-            nn.Linear(in_dims * 2, num_channels)
-        )
 
         self.residual_blocks = nn.ModuleList([
             ResidualConvBlock(num_channels, expansion_factor, kernel_size, dropout_rate, use_norm)
@@ -66,7 +56,6 @@ class PitchNet(nn.Module):
         input:[B, T, 256]
         output:[B, T, F x C = 128]
         """
-        x = self.mlp_input(x)
         x = x.transpose(1, 2)
         for block in self.residual_blocks:
             x = block(x)
@@ -78,10 +67,10 @@ class PitchNet(nn.Module):
 
 
 # 参考 https://github.com/DiffBeautifier/svbcode/blob/main/net.py
-class PitchNetOld(nn.Module):
+class PitchNet(nn.Module):
     def __init__(
             self, in_dims, out_dims, /, *,
-            num_channels=512, num_layers=2, kernel_size=5, dropout_rate=0.1, strides=None
+            num_channels=512, num_layers=4, kernel_size=5, dropout_rate=0.1, strides=None
     ):
         super().__init__()
         in_dim = in_dims
