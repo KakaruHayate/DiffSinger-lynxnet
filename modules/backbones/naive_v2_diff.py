@@ -45,6 +45,7 @@ class NaiveV2DiffLayer(nn.Module):
                  kernel_size=31,
                  wavenet_like=False,
                  conv_model_type='mode1',
+                 conv_model_activation='SiLU'
                  ):
         super().__init__()
 
@@ -55,6 +56,7 @@ class NaiveV2DiffLayer(nn.Module):
             dropout=conv_dropout,
             use_norm=use_norm,
             conv_model_type=conv_model_type,
+            conv_model_activation='SiLU'
         )
         # self.norm = nn.LayerNorm(dim_model)
 
@@ -116,6 +118,7 @@ class NaiveV2Diff(nn.Module):
             conv_model_type='mode1',
             conv_dropout=0.0,
             atten_dropout=0.1,
+            conv_model_activation='SiLU'
     ):
         mel_channels = in_dims * n_feats
         num_layers = n_layers
@@ -158,6 +161,7 @@ class NaiveV2Diff(nn.Module):
                     kernel_size=kernel_size,
                     wavenet_like=wavenet_like,
                     conv_model_type=conv_model_type,
+                    activation=conv_model_activation
                 )
                 for i in range(num_layers)
             ]
