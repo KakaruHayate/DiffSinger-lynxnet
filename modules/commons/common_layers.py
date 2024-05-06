@@ -140,9 +140,9 @@ class EncSALayer(nn.Module):
             c, num_heads, dropout=attention_dropout, bias=False,
         )
         self.mode = mode
-        if mode = 'series':
+        if mode == 'series':
             self.layer_norm2 = LayerNorm(c)
-        elif mode = 'parallel':
+        elif mode == 'parallel':
             self.layer_norm2 = nn.Identity()
         else:
             raise ValueError(f'{mode} is not a valid EncSALayer_model_type')
@@ -152,7 +152,7 @@ class EncSALayer(nn.Module):
         )
 
     def forward(self, x, encoder_padding_mask=None, **kwargs):
-        if self.mode = 'series':
+        if self.mode == 'series':
             layer_norm_training = kwargs.get('layer_norm_training', None)
             if layer_norm_training is not None:
                 self.layer_norm1.training = layer_norm_training
@@ -175,7 +175,7 @@ class EncSALayer(nn.Module):
             x = F.dropout(x, self.dropout, training=self.training)
             x = residual + x
             x = x * (1 - encoder_padding_mask.float()).transpose(0, 1)[..., None]
-        elif self.mode = 'parallel':
+        elif self.mode == 'parallel':
             layer_norm_training = kwargs.get('layer_norm_training', None)
             if layer_norm_training is not None:
                 self.layer_norm1.training = layer_norm_training
