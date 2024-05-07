@@ -132,7 +132,7 @@ class TransformerFFNLayer(nn.Module):
 
 class EncSALayer(nn.Module):
     def __init__(self, c, num_heads, dropout, attention_dropout=0.1,
-                 relu_dropout=0.1, kernel_size=9, act='gelu', mode='series'):
+                 relu_dropout=0.1, kernel_size=9, act='gelu', mode='series', use_kan=False):
         super().__init__()
         self.dropout = dropout
         self.layer_norm1 = LayerNorm(c)
@@ -147,10 +147,19 @@ class EncSALayer(nn.Module):
         else:
             raise ValueError(f'{mode} is not a valid EncSALayer_model_type')
             
-        self.ffn = TransformerFFNLayer(
-            c, 4 * c, kernel_size=kernel_size, dropout=relu_dropout, act=act
-        )
 
+        if use_kan:
+            self.mlp = nn.ModuleDict(dict(
+                kan    = KAN([c, 2 * c, c]),
+                dropout = nn.Dropout(0.1),
+            ))
+            m = self.mlp
+            self.ffn = lambda x: m.dropout(m.kan(x)) # MLP forward
+        else:
+            self.ffn = TransformerFFNLayer(
+                c, 4 * c, kernel_size=kernel_size, dropout=relu_dropout, act=act
+            )
+            
     def forward(self, x, encoder_padding_mask=None, **kwargs):
         if self.mode == 'series':
             layer_norm_training = kwargs.get('layer_norm_training', None)
