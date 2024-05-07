@@ -9,6 +9,7 @@ from torch import nn
 from torch.nn import LayerNorm, MultiheadAttention, ReLU, GELU, SiLU
 
 import utils
+from .kan import KAN
 
 
 class NormalInitEmbedding(torch.nn.Embedding):
