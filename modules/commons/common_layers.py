@@ -149,9 +149,10 @@ class EncSALayer(nn.Module):
             raise ValueError(f'{mode} is not a valid EncSALayer_model_type')
             
 
+        # What KAN I say?
         if use_kan:
             self.mlp = nn.ModuleDict(dict(
-                kan    = KAN([c, 2 * c, c]),
+                kan    = KAN([c, 4 * c, c]),
                 dropout = nn.Dropout(0.1),
             ))
             m = self.mlp
