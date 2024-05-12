@@ -146,7 +146,7 @@ class EncSALayer(nn.Module):
         elif mode == 'parallel':
             self.layer_norm2 = nn.Identity()
         else:
-            raise ValueError(f'{mode} is not a valid EncSALayer_model_type')
+            raise ValueError(f'{tf_enc_mode} is not a valid encoder model type')
             
 
         # What KAN I say?
@@ -163,13 +163,13 @@ class EncSALayer(nn.Module):
             )
             
     def forward(self, x, encoder_padding_mask=None, **kwargs):
-        if self.mode == 'series':
-            layer_norm_training = kwargs.get('layer_norm_training', None)
-            if layer_norm_training is not None:
-                self.layer_norm1.training = layer_norm_training
-                self.layer_norm2.training = layer_norm_training
-            residual = x
-            x = self.layer_norm1(x)
+        layer_norm_training = kwargs.get('layer_norm_training', None)
+        if layer_norm_training is not None:
+            self.layer_norm1.training = layer_norm_training
+            self.layer_norm2.training = layer_norm_training
+        residual = x
+        x = self.layer_norm1(x)
+        if self.tf_enc_mode == 'series':
             x, _, = self.self_attn(
                 query=x,
                 key=x,
@@ -186,28 +186,22 @@ class EncSALayer(nn.Module):
             x = F.dropout(x, self.dropout, training=self.training)
             x = residual + x
             x = x * (1 - encoder_padding_mask.float()).transpose(0, 1)[..., None]
-        elif self.mode == 'parallel':
-            layer_norm_training = kwargs.get('layer_norm_training', None)
-            if layer_norm_training is not None:
-                self.layer_norm1.training = layer_norm_training
-            x_input = self.layer_norm1(x)
+        elif self.tf_enc_mode == 'parallel':
+            # transformer-parallel from GPT-J
             x_attn, _, = self.self_attn(
-                query=x_input,
-                key=x_input,
-                value=x_input,
+                query=x,
+                key=x,
+                value=x,
                 key_padding_mask=encoder_padding_mask
             )
             x_attn = F.dropout(x_attn, self.dropout, training=self.training)
-            
-            x_ffn = self.ffn(x_input)
+            x_ffn = self.ffn(x)
             x_ffn = F.dropout(x_ffn, self.dropout, training=self.training)
             
-            x_parallel = x_attn + x_ffn
-            x_parallel = x_parallel * (1 - encoder_padding_mask.float()).transpose(0, 1)[..., None]
-
-            x = x_parallel + x
+            x = (x_attn + x_ffn) + residual
             x = x * (1 - encoder_padding_mask.float()).transpose(0, 1)[..., None]
         else:
-            raise ValueError(f'{mode} is not a valid EncSALayer_model_type')
+           raise ValueError(f'{tf_enc_mode} is not a valid encoder model type')
 
         return x
+
