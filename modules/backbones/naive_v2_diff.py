@@ -7,6 +7,7 @@ from torch import nn
 from .model_conformer_naive import ConformerConvModule
 import random
 from utils.hparams import hparams
+from modules.commons.kan import KAN
 
 
 # from https://github.com/fishaudio/fish-diffusion/blob/main/fish_diffusion/modules/convnext.py
@@ -30,6 +31,28 @@ class DiffusionEmbedding(nn.Module):
         return emb
 
 
+# SElayer from mobilenet-v3
+class SEBlock(nn.Module):
+    def __init__(self, in_channels, reduction=16):
+        super(SEBlock, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool1d(1)
+        self.fc = nn.Sequential(
+            nn.Linear(in_channels, in_channels // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(in_channels // reduction, in_channels, bias=False),
+            nn.Hardsigmoid()
+            # nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        
+        x = x.transpose(1, 2)
+        b, c, _ = x.size()
+        y = self.avg_pool(x).view(b, c)
+        y = self.fc(y).view(b, c, 1)
+        return (x * y.expand_as(x)).transpose(1, 2)
+
+
 class NaiveV2DiffLayer(nn.Module):
 
     def __init__(self,
@@ -45,7 +68,8 @@ class NaiveV2DiffLayer(nn.Module):
                  kernel_size=31,
                  wavenet_like=False,
                  conv_model_type='mode1',
-                 conv_model_activation='SiLU'
+                 conv_model_activation='SiLU', 
+                 convattn='none'
                  ):
         super().__init__()
 
@@ -59,6 +83,13 @@ class NaiveV2DiffLayer(nn.Module):
             activation=conv_model_activation
         )
         # self.norm = nn.LayerNorm(dim_model)
+
+        if convattn=='selayer':
+            self.selayer = SEBlock(dim_model)
+        elif convattn=='none':
+            self.selayer = nn.Identity()
+        else:
+            raise ValueError(f'{convattn} is not a valid convattn')
 
         self.dropout = nn.Dropout(0.1)  # 废弃代码,仅做兼容性保留
         if wavenet_like:
@@ -81,6 +112,7 @@ class NaiveV2DiffLayer(nn.Module):
             self.norm = nn.LayerNorm(dim_model)
         else:
             self.attn = None
+        
 
     def forward(self, x, condition=None, diffusion_step=None) -> torch.Tensor:
         res_x = x.transpose(1, 2)
@@ -89,7 +121,7 @@ class NaiveV2DiffLayer(nn.Module):
 
         if self.attn is not None:
             x = (self.attn(self.norm(x)))
-
+        x = self.selayer(x)
         x = self.conformer(x)  # (#batch, dim_model, length)
 
         if self.wavenet_like_proj is not None:
