@@ -154,18 +154,18 @@ class ConformerConvModule(nn.Module):
             conv_model_type='mode1' # mode2参数更小，效果似乎没区别，需要去 naive_v2_diff.py class NaiveV2Diff 修改，在这里改参数会被覆盖
     ):
         super().__init__()
+        inner_dim = dim * expansion_factor
+        padding = calc_same_padding(kernel_size)
         activation = activation if activation is not None else 'SiLU'
         if activation == 'SiLU':
             _activation = nn.SiLU()
         elif activation == 'ReLU':
             _activation = nn.ReLU()
         elif activation == 'PReLU':
-            _activation = nn.PReLU(dim)
+            _activation = nn.PReLU(inner_dim)
         else:
             raise ValueError(f'{activation} is not a valid activation')
 
-        inner_dim = dim * expansion_factor
-        padding = calc_same_padding(kernel_size)
         if use_norm:
             _norm = nn.LayerNorm(dim)
         else:
@@ -183,18 +183,6 @@ class ConformerConvModule(nn.Module):
                 nn.Conv1d(inner_dim, inner_dim, kernel_size=kernel_size, padding=padding[0], groups=inner_dim),
                 _activation,
                 nn.Conv1d(inner_dim, dim, 1),
-                Transpose((1, 2)),
-                _dropout
-            )
-        elif conv_model_type == 'mode2':
-            self.net = nn.Sequential(
-                _norm,
-                Transpose((1, 2)),
-                nn.Conv1d(dim, dim * 2, 1),
-                nn.GLU(dim=1),
-                nn.Conv1d(dim, dim, kernel_size=kernel_size, padding=padding[0], groups=dim),
-                _activation,
-                nn.Conv1d(dim, dim, 1),
                 Transpose((1, 2)),
                 _dropout
             )
