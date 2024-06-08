@@ -7,11 +7,16 @@ from torch import nn
 from .model_conformer_naive import ConformerConvModule
 import random
 from utils.hparams import hparams
-from modules.commons.kan import KAN
 
 
 # from https://github.com/fishaudio/fish-diffusion/blob/main/fish_diffusion/modules/convnext.py
 # 参考了这个
+
+
+class Conv1d(torch.nn.Conv1d):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        nn.init.kaiming_normal_(self.weight)
 
 
 class DiffusionEmbedding(nn.Module):
@@ -31,28 +36,6 @@ class DiffusionEmbedding(nn.Module):
         return emb
 
 
-# SElayer from mobilenet-v3
-class SEBlock(nn.Module):
-    def __init__(self, in_channels, reduction=16):
-        super(SEBlock, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool1d(1)
-        self.fc = nn.Sequential(
-            nn.Linear(in_channels, in_channels // reduction, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Linear(in_channels // reduction, in_channels, bias=False),
-            nn.Hardsigmoid()
-            # nn.Sigmoid()
-        )
-
-    def forward(self, x):
-        
-        x = x.transpose(1, 2)
-        b, c, _ = x.size()
-        y = self.avg_pool(x).view(b, c)
-        y = self.fc(y).view(b, c, 1)
-        return (x * y.expand_as(x)).transpose(1, 2)
-
-
 class NaiveV2DiffLayer(nn.Module):
 
     def __init__(self,
@@ -63,13 +46,14 @@ class NaiveV2DiffLayer(nn.Module):
                  conv_only: bool = True,
                  conv_dropout: float = 0.,
                  atten_dropout: float = 0.1,
-                 use_mlp=False,
+                 use_mlp=True,
                  expansion_factor=2,
                  kernel_size=31,
                  wavenet_like=False,
                  conv_model_type='mode1',
-                 conv_model_activation='SiLU', 
-                 convattn='none'
+                 no_t_emb=False,
+                 conv_model_activation='SiLU',
+                 GLU_type='GLU'
                  ):
         super().__init__()
 
@@ -80,16 +64,10 @@ class NaiveV2DiffLayer(nn.Module):
             dropout=conv_dropout,
             use_norm=use_norm,
             conv_model_type=conv_model_type,
-            activation=conv_model_activation
+            activation=conv_model_activation,
+            GLU_type=GLU_type
         )
-        # self.norm = nn.LayerNorm(dim_model)
-
-        if convattn=='selayer':
-            self.selayer = SEBlock(dim_model)
-        elif convattn=='none':
-            self.selayer = nn.Identity()
-        else:
-            raise ValueError(f'{convattn} is not a valid convattn')
+        self.norm = nn.LayerNorm(dim_model)
 
         self.dropout = nn.Dropout(0.1)  # 废弃代码,仅做兼容性保留
         if wavenet_like:
@@ -97,7 +75,11 @@ class NaiveV2DiffLayer(nn.Module):
         else:
             self.wavenet_like_proj = None
 
-        self.diffusion_step_projection = nn.Conv1d(dim_model, dim_model, 1)
+        self.no_t_emb = no_t_emb if (no_t_emb is not None) else False
+        if not self.no_t_emb:
+            self.diffusion_step_projection = nn.Conv1d(dim_model, dim_model, 1)
+        else:
+            self.diffusion_step_projection = None
         self.condition_projection = nn.Conv1d(dim_cond, dim_model, 1)
 
         # selfatt -> fastatt: performer!
@@ -109,19 +91,20 @@ class NaiveV2DiffLayer(nn.Module):
                 dropout=atten_dropout,
                 activation='gelu'
             )
-            self.norm = nn.LayerNorm(dim_model)
         else:
             self.attn = None
-        
 
     def forward(self, x, condition=None, diffusion_step=None) -> torch.Tensor:
         res_x = x.transpose(1, 2)
-        x = x + self.diffusion_step_projection(diffusion_step) + self.condition_projection(condition)
+        if self.no_t_emb:
+            x = x + self.condition_projection(condition)
+        else:
+            x = x + self.diffusion_step_projection(diffusion_step) + self.condition_projection(condition)
         x = x.transpose(1, 2)
 
         if self.attn is not None:
             x = (self.attn(self.norm(x)))
-        x = self.selayer(x)
+
         x = self.conformer(x)  # (#batch, dim_model, length)
 
         if self.wavenet_like_proj is not None:
@@ -150,24 +133,29 @@ class NaiveV2Diff(nn.Module):
             conv_model_type='mode1',
             conv_dropout=0.0,
             atten_dropout=0.1,
-            conv_model_activation='PReLU'
+            conv_model_activation='PReLU', 
+            GLU_type='GLU'
     ):
         mel_channels = in_dims * n_feats
         num_layers = n_layers
         dim = n_chans
         condition_dim = hparams['hidden_size']
-
+        
         super(NaiveV2Diff, self).__init__()
+        self.no_t_emb = no_t_emb if (no_t_emb is not None) else False
         self.wavenet_like = wavenet_like
         self.mask_cond_ratio = None
 
-        self.input_projection = nn.Conv1d(mel_channels, dim, 1)
-        self.diffusion_embedding = nn.Sequential(
-            DiffusionEmbedding(dim),
-            nn.Linear(dim, dim * mlp_factor),
-            nn.GELU(),
-            nn.Linear(dim * mlp_factor, dim),
-        )
+        self.input_projection = Conv1d(mel_channels, dim, 1)
+        if self.no_t_emb:
+            self.diffusion_embedding = None
+        else:
+            self.diffusion_embedding = nn.Sequential(
+                DiffusionEmbedding(dim),
+                nn.Linear(dim, dim * mlp_factor),
+                nn.GELU(),
+                nn.Linear(dim * mlp_factor, dim),
+            )
         
         if use_mlp:
             self.conditioner_projection = nn.Sequential(
@@ -193,22 +181,24 @@ class NaiveV2Diff(nn.Module):
                     kernel_size=kernel_size,
                     wavenet_like=wavenet_like,
                     conv_model_type=conv_model_type,
-                    conv_model_activation=conv_model_activation
+                    no_t_emb=self.no_t_emb,
+                    conv_model_activation=conv_model_activation,
+                    GLU_type=GLU_type
                 )
                 for i in range(num_layers)
             ]
         )
 
         if use_mlp:
-            _ = nn.Conv1d(dim * mlp_factor, mel_channels, kernel_size=1)
+            _ = Conv1d(dim * mlp_factor, mel_channels, kernel_size=1)
             nn.init.zeros_(_.weight)
             self.output_projection = nn.Sequential(
-                nn.Conv1d(dim, dim * mlp_factor, kernel_size=1),
+                Conv1d(dim, dim * mlp_factor, kernel_size=1),
                 nn.GELU(),
                 _,
             )
         else:
-            self.output_projection = nn.Conv1d(dim, mel_channels, kernel_size=1)
+            self.output_projection = Conv1d(dim, mel_channels, kernel_size=1)
             nn.init.zeros_(self.output_projection.weight)
 
     def forward(self, spec, diffusion_step, cond):
@@ -233,7 +223,10 @@ class NaiveV2Diff(nn.Module):
         x = self.input_projection(x)  # x [B, residual_channel, T]
         x = F.gelu(x)
 
-        diffusion_step = self.diffusion_embedding(diffusion_step).unsqueeze(-1)
+        if self.no_t_emb:
+            diffusion_step = None
+        else:
+            diffusion_step = self.diffusion_embedding(diffusion_step).unsqueeze(-1)
         condition = self.conditioner_projection(conditioner)
 
         if self.wavenet_like:
