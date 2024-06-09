@@ -8,7 +8,7 @@
  - 为了方便与openvpi/DiffSinger同步，并没有对新组件参数传递进行兼容，如需改动请前往`modules/commons/common_layers.py`和`modules/backbone/naive_v2_diff.py`
  - 可能需要改动的部分：
  - `modules/commons/common_layers.py`→`class EncSALayer`中`tf_enc_mode`（设定到`series`恢复transformer原始设定）
- - `modules/backbone/naive_v2_diff.py`→`class NaiveV2Diff`中`conv_model_activation`（目前提供了`ReLU``SiLU``PReLU`三种设定，其中`PReLU`风格较为接近原repo中Wavenet，`ReLU`较虚，`SiLU`较为实，可以根据想要的风格进行调节）
+ - `modules/backbone/naive_v2_diff.py`→`class NaiveV2Diff`中`conv_model_activation`（目前提供了`ReLU`、`SiLU`、`PReLU`三种设定，其中`PReLU`风格较为接近原repo中Wavenet，`ReLU`较虚，`SiLU`较为实，可以根据想要的风格进行调节）
  - `use_norm`（遇到训练极为不稳定的情况下，设定为`True`）
  - `GLU_type`（设定为`GLU`为lynxnet的原始设定）
 
