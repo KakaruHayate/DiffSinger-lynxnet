@@ -63,7 +63,8 @@ class NaiveV2DiffLayer(nn.Module):
             dropout=conv_dropout,
             use_norm=use_norm,
             conv_model_type=conv_model_type,
-            activation=conv_model_activation
+            activation=conv_model_activation,
+            GLU_type='GLU'
         )
         # self.norm = nn.LayerNorm(dim_model) # 这一部分在lightning上，会在ddp的情况下报错 https://github.com/Lightning-AI/pytorch-lightning/issues/17212
 
@@ -122,7 +123,7 @@ class NaiveV2Diff(nn.Module):
             kernel_size=31,
             conv_only=True,
             wavenet_like=False,
-            use_norm=False,
+            use_norm=True,
             conv_model_type='mode1',
             conv_dropout=0.0,
             atten_dropout=0.1,
